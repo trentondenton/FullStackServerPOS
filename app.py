@@ -74,6 +74,7 @@ companies_schema = CompanySchema(many=True)
 class Employee(db.Model):
   empID = db.Column(db.Integer, primary_key=True)
   compID = db.Column(db.Integer, db.ForeignKey('company.compID'), nullable=False)
+  compName = db.Column(db.String, db.ForeignKey('company.compName'), nullable=False)
   empLevel = db.Column(db.Integer, nullable=False)
   empFirstName = db.Column(db.String(15), unique=False, nullable=False)
   empLastName = db.Column(db.String(15), unique=False, nullable=False)
@@ -91,8 +92,9 @@ class Employee(db.Model):
   empStatus = db.Column(db.Boolean, default=True, nullable=False)
   empSSN = db.Column(db.String(9), unique=True, nullable=False)
 
-  def __init__(self, compID, empLevel, empFirstName, empLastName, empDOB, titleID, empUsername, empEmail, empPassword, empStartDate, empEndDate, empPhone, empPicture, empSalary, empHourly, empStatus, empSSN):
+  def __init__(self, compID, compName, empLevel, empFirstName, empLastName, empDOB, titleID, empUsername, empEmail, empPassword, empStartDate, empEndDate, empPhone, empPicture, empSalary, empHourly, empStatus, empSSN):
     self.compID = compID
+    self.compName = compName
     self.empLevel = empLevel
     self.empFirstName = empFirstName
     self.empLastName = empLastName
@@ -113,7 +115,7 @@ class Employee(db.Model):
 
 class EmployeeSchema(ma.Schema):
   class Meta:
-    fields = ('empID', 'compID', 'empFirstName', 'empLastName', 'empDOB', 'titleID', 'empUsername', 'empEmail', 'empPassword', 'empStartDate', 'empEndDate', 'empPhone', 'empPicture', 'empSalary', 'empHourly', 'empStatus', 'empLevel', 'empSSN')
+    fields = ('empID', 'compID', 'compName', 'empFirstName', 'empLastName', 'empDOB', 'titleID', 'empUsername', 'empEmail', 'empPassword', 'empStartDate', 'empEndDate', 'empPhone', 'empPicture', 'empSalary', 'empHourly', 'empStatus', 'empLevel', 'empSSN')
 
 employee_schema = EmployeeSchema()
 employees_schema = EmployeeSchema(many=True)
@@ -428,10 +430,12 @@ def create_employee():
     isCompany = current_user['isCompany']
     
   empCompID = current_user['compID']
+  empCompName = current_user['compName']
   # Admin User ? Add User : Error
   if isCompany:
     data = request.get_json()
     compID = empCompID
+    compName = empCompName
     empLevel = data.get('empLevel')
     empFirstName = data.get('empFirstName')
     empLastName = data.get('empLastName')
@@ -449,8 +453,6 @@ def create_employee():
     empStatus = True
     empSSN = data.get('empSSN')
     title = data.get('title')
-    compID, empLevel, empFirstName, empLastName, empDOB, titleID, empUsername, empEmail, empPassword, empStartDate, empEndDate, empPhone, empPicture, empSalary, empHourly, empStatus, empSSN
-
 
 
     duplicateCheck(Employee, Employee.empUsername, empUsername)
@@ -461,7 +463,7 @@ def create_employee():
 
     encrypted_ssn = bcrypt.generate_password_hash(empSSN).decode('utf-8')
     empSSN = encrypted_ssn
-    new_employee = Employee(compID, empLevel, empFirstName, empLastName, empDOB, titleID, empUsername, empEmail, empPassword, empStartDate, empEndDate, empPhone, empPicture, empSalary, empHourly, empStatus, empSSN)
+    new_employee = Employee(compID, compName, empLevel, empFirstName, empLastName, empDOB, titleID, empUsername, empEmail, empPassword, empStartDate, empEndDate, empPhone, empPicture, empSalary, empHourly, empStatus, empSSN)
     db.session.add(new_employee)
     db.session.commit()
     employee_result = employee_schema.dump(new_employee)
@@ -477,7 +479,6 @@ def create_employee():
         'success': True,
         'data': {
           'employee': employee_result
-          # 'title': title_result
         }
       }), 201
 
@@ -785,7 +786,7 @@ def login_employee():
   access_token = create_access_token(identity=employee_schema.dump(employee))
   return jsonify({
     'success': True,
-    'data' :{
+    'data':{
       'token': access_token
     }
     }), 200
