@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow 
 from flask_cors import CORS
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import os
@@ -294,7 +294,7 @@ def create_company():
 
   result = company_schema.dump(new_company)
   company = Company.query.filter_by(compID=result['compID']).first()
-  access_token = create_access_token(identity=company_schema.dump(company))
+  access_token = create_access_token(identity=company_schema.dump(company), expires_delta=timedelta(days=2))
   return jsonify({
     'success': True,
     'message': 'Company Created',
@@ -717,7 +717,7 @@ def login_company():
   if compare_password is False:
     return jsonify({'message': 'Incorrect Password', 'success': False}), 403
 
-  access_token = create_access_token(identity=company_schema.dump(company))
+  access_token = create_access_token(identity=company_schema.dump(company) , expires_delta=timedelta(days=2))
   return jsonify({
     'success': True,
     'data' :{
@@ -783,7 +783,7 @@ def login_employee():
   if compare_password is False:
     return jsonify({'message': 'Incorrect Password', 'success': False}), 403
 
-  access_token = create_access_token(identity=employee_schema.dump(employee))
+  access_token = create_access_token(identity=employee_schema.dump(employee), expires_delta=timedelta(days=2))
   return jsonify({
     'success': True,
     'data':{
@@ -834,7 +834,6 @@ def logout_employee():
 @jwt_required()
 def get_products():
   requestContentTypeCheck()
-
   current_user = get_jwt_identity()
   empCompID = current_user['compID']
 
