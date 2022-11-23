@@ -423,15 +423,12 @@ def create_employee():
   requestContentTypeCheck()
 
   current_user = get_jwt_identity()
-  # if current_user['empLevel']:
-  #   currentEmpLevel = current_user['empLevel']
- 
+
   if current_user['isCompany']:
     isCompany = current_user['isCompany']
     
   empCompID = current_user['compID']
   empCompName = current_user['compName']
-  # Admin User ? Add User : Error
   if isCompany:
     data = request.get_json()
     compID = empCompID
@@ -452,7 +449,7 @@ def create_employee():
     empHourly = data.get('empHourly')
     empStatus = True
     empSSN = data.get('empSSN')
-    title = data.get('title')
+    titleID = data.get('titleID')
 
 
     duplicateCheck(Employee, Employee.empUsername, empUsername)
@@ -463,7 +460,7 @@ def create_employee():
 
     encrypted_ssn = bcrypt.generate_password_hash(empSSN).decode('utf-8')
     empSSN = encrypted_ssn
-    new_employee = Employee(compID, compName, empLevel, empFirstName, empLastName, empDOB, titleID, empUsername, empEmail, empPassword, empStartDate, empEndDate, empPhone, empPicture, empSalary, empHourly, empStatus, empSSN)
+    new_employee = Employee(compID, compName, empLevel, empFirstName, empLastName, empDOB, titleID, empUsername, empEmail, empPassword, empStartDate, empEndDate, empPhone, empPicture, empSalary, empHourly, empStatus, empSSN, titleID)
     db.session.add(new_employee)
     db.session.commit()
     employee_result = employee_schema.dump(new_employee)
@@ -553,7 +550,6 @@ def update_employee(empID):
   # Get Current User Token Information
   current_user = get_jwt_identity()
   empCompID = current_user['compID']
-  currentEmpID = current_user['empID']
   isCompany = current_user['isCompany']
 
   #Get Request Data
@@ -574,43 +570,44 @@ def update_employee(empID):
   empLevel = data.get('empLevel')
   empCurrentPassword = data.get('empCurrentPassword')
   empNewPassword = data.get('empNewPassword')
-
-
-  # Check if Current User is Editing Themselves
-  employee = Employee.query.filter_by(empID=empID).first()
-  if currentEmpID == employee.empID:
-    employee.empUsername = empUsername
-    employee.empEmail = empEmail
-    employee.empPhone = empPhone
-
-    if empNewPassword and empCurrentPassword:
-      if bcrypt.check_password_hash(employee.empPassword, empCurrentPassword):
-        encrypted_password = bcrypt.generate_password_hash(empNewPassword).decode('utf-8')
-        employee.empPassword = encrypted_password
-      else:
-        return jsonify({
-          'success': False,
-          'message': 'Incorrect Login Information',
-          'data': {}
-        }), 400
-
-    if empPicture:
+  
+  if empPicture:
       employee.empPicture = empPicture
 
-    db.session.commit()
 
-    result = employee_schema.dump(employee)
-    return jsonify({
-        'success': True,
-        'data': {
-          'employee': result
-        }
-      }), 204
+  # # Check if Current User is Editing Themselves
+  # employee = Employee.query.filter_by(empID=empID).first()
+  # if currentEmpID == employee.empID:
+  #   employee.empUsername = empUsername
+  #   employee.empEmail = empEmail
+  #   employee.empPhone = empPhone
+
+  #   if empNewPassword and empCurrentPassword:
+  #     if bcrypt.check_password_hash(employee.empPassword, empCurrentPassword):
+  #       encrypted_password = bcrypt.generate_password_hash(empNewPassword).decode('utf-8')
+  #       employee.empPassword = encrypted_password
+  #     else:
+  #       return jsonify({
+  #         'success': False,
+  #         'message': 'Incorrect Login Information',
+  #         'data': {}
+  #       }), 400
+
+
+
+    # db.session.commit()
+
+    # result = employee_schema.dump(employee)
+    # return jsonify({
+    #     'success': True,
+    #     'data': {
+    #       'employee': result
+    #     }
+    #   }), 204
 
   # Check if Company or Admin is Editing an Employee
   if isCompany:
     employee = Employee.query.filter_by(empID=empID).first()
-
     employee.empFirstName = empFirstName if empFirstName else employee.empFirstName
     employee.empLastName = empLastName if empLastName else employee.empLastName
     employee.empDOB = empDOB if empDOB else employee.empDOB
@@ -637,7 +634,8 @@ def update_employee(empID):
       
     db.session.commit()
 
-    result = employee_schema.dump(employee)
+    updated_employee = Employee.query.filter_by(empID=empID).first()
+    result = employee_schema.dump(updated_employee)
     return jsonify({
         'success': True,
         'data': {
@@ -838,6 +836,10 @@ def get_products():
   empCompID = current_user['compID']
 
   products = db.session.query(Product).filter(Product.compID == empCompID).all()
+
+  if not products:
+    return jsonify({'message': 'No Products Found', 'success': False}), 404
+
   result = products_schema.dump(products)
   return jsonify({
     'success': True,
@@ -936,8 +938,8 @@ def update_product(prodID):
   requestContentTypeCheck()
 
   current_user = get_jwt_identity()
-  isCompany = current_user['isCompany']
   empCompID = current_user['compID']
+  isCompany = current_user['isCompany']
 
   if isCompany:
     data = request.get_json()
@@ -945,28 +947,36 @@ def update_product(prodID):
     prodDescription = data.get('prodDescription')
     prodPrice = data.get('prodPrice')
     prodQuantity = data.get('prodQuantity')
+    prodCategory = data.get('prodCategory')
+    prodImage = data.get('prodImage')
 
-    product = db.session.query(Product).filter(Product.prodID == prodID, Product.compID == empCompID).first()
-
-    if not product:
+    product = db.session.query(Product).filter(Product.productID == prodID, Product.compID == empCompID).first()
+    if product is None:
       return jsonify({
         'success': False,
         'message': 'Product Not Found',
         'data': {}
       }), 404
 
-    product.prodName = prodName
-    product.prodDescription = prodDescription
-    product.prodPrice = prodPrice
-    product.prodQuantity = prodQuantity
+    product.prodName = prodName if prodName else product.prodName
+    product.compID = empCompID
+    product.prodDescription = prodDescription if prodDescription else product.prodDescription
+    product.prodPrice = prodPrice if prodPrice else product.prodPrice
+    product.prodQuantity = prodQuantity if prodQuantity else product.prodQuantity
+    product.prodDate = product.prodDate
+    product.prodCategory = prodCategory if prodCategory else product.prodCategory
+    product.prodImage = prodImage if prodImage else product.prodImage
+
 
     db.session.commit()
 
+    updated_product = db.session.query(Product).filter(Product.productID == prodID, Product.compID == empCompID).first()
+    result = product_schema.dump(updated_product)
     return jsonify({
       'success': True,
       'message': 'Product Updated',
       'data': {
-        'product': product_schema.dump(product)
+        'product': result
       }
     }), 200
 
