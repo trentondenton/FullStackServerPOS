@@ -19,7 +19,7 @@ ma = Marshmallow(app)
 
 # Middleware
 bcrypt = Bcrypt(app)
-cors = CORS(app)
+cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 jwt = JWTManager(app)
 
