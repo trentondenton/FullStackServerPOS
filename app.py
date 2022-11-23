@@ -143,7 +143,7 @@ class Title(db.Model):
 # Title Schema
 class TitleSchema(ma.Schema):
   class Meta:
-    fields = ('compID', 'empID', 'title')
+    fields = ('compID', 'empID', 'title', 'titleID')
 
 title_schema = TitleSchema()
 titles_schema = TitleSchema(many=True)
@@ -163,7 +163,7 @@ class Product(db.Model):
   prodDescription = db.Column(db.String(500), unique=False, nullable=False)
   prodPrice = db.Column(db.Float, unique=False, nullable=False)
   prodQuantity = db.Column(db.Integer, unique=False, nullable=False)
-  prodImage = db.Column(db.String(250), unique=False, nullable=False)
+  prodImage = db.Column(db.String(250), unique=False, nullable=True)
   prodCategory = db.Column(db.String(50), unique=False, nullable=False)
   prodDate = db.Column(db.DateTime, unique=False, nullable=False, default=datetime.utcnow)
 
@@ -449,7 +449,6 @@ def create_employee():
     empHourly = data.get('empHourly')
     empStatus = True
     empSSN = data.get('empSSN')
-    titleID = data.get('titleID')
 
 
     duplicateCheck(Employee, Employee.empUsername, empUsername)
@@ -460,7 +459,7 @@ def create_employee():
 
     encrypted_ssn = bcrypt.generate_password_hash(empSSN).decode('utf-8')
     empSSN = encrypted_ssn
-    new_employee = Employee(compID, compName, empLevel, empFirstName, empLastName, empDOB, titleID, empUsername, empEmail, empPassword, empStartDate, empEndDate, empPhone, empPicture, empSalary, empHourly, empStatus, empSSN, titleID)
+    new_employee = Employee(compID, compName, empLevel, empFirstName, empLastName, empDOB, titleID, empUsername, empEmail, empPassword, empStartDate, empEndDate, empPhone, empPicture, empSalary, empHourly, empStatus, empSSN)
     db.session.add(new_employee)
     db.session.commit()
     employee_result = employee_schema.dump(new_employee)
@@ -892,10 +891,11 @@ def create_product():
 
   current_user = get_jwt_identity()
   isCompany = current_user['isCompany']
-  empCompID = current_user['compID']
 
   if isCompany:
+    empCompID = current_user['compID']
     data = request.get_json()
+    compID = empCompID
     prodName = data.get('prodName')
     prodDescription = data.get('prodDescription')
     prodPrice = data.get('prodPrice')
@@ -904,7 +904,7 @@ def create_product():
     prodImage = data.get('prodImage')
     prodDate = datetime.now()
 
-    product = Product(empCompID, prodName, prodDescription, prodPrice, prodQuantity, prodCategory, prodDate, prodImage)
+    product = Product(compID, prodName, prodDescription, prodPrice, prodQuantity, prodImage, prodCategory,  prodDate)
     db.session.add(product)
     db.session.commit()
 
@@ -1087,13 +1087,6 @@ def get_titles():
 
   if isCompany:
     titles = db.session.query(Title).filter(Title.compID == empCompID).all()
-
-    if not titles:
-      return jsonify({
-        'success': False,
-        'message': 'No Titles Found',
-        'data': {}
-      }), 404
 
     result = titles_schema.dump(titles)
     return jsonify({
